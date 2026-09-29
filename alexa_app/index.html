@@ -1,0 +1,1391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOFI — Modern Voice Assistant Interface</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <style>
+    :root {
+      --bg-dark: #070a12;
+      --bg-card: rgba(18, 24, 38, 0.65);
+      --bg-card-hover: rgba(28, 36, 56, 0.75);
+      --border-color: rgba(0, 210, 255, 0.15);
+      --border-glow: rgba(0, 210, 255, 0.4);
+      
+      --cyan-primary: #00d2ff;
+      --cyan-glow: rgba(0, 210, 255, 0.5);
+      --blue-accent: #3a7bd5;
+      --purple-accent: #9d4edd;
+      
+      --text-main: #f0f4f8;
+      --text-muted: #8a99ad;
+      --text-dim: #5c6b80;
+      
+      --success: #10b981;
+      --warning: #f59e0b;
+      --danger: #ef4444;
+      
+      --sidebar-width: 260px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      background-color: var(--bg-dark);
+      background-image: 
+        radial-gradient(circle at 20% 20%, rgba(0, 210, 255, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(157, 78, 221, 0.08) 0%, transparent 40%),
+        radial-gradient(circle at 50% 50%, rgba(7, 10, 18, 0.95) 0%, #070a12 100%);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      height: 100vh;
+      display: flex;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* ── SIDEBAR NAV ── */
+    aside {
+      width: var(--sidebar-width);
+      background: rgba(10, 14, 24, 0.85);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-right: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      padding: 24px 16px;
+      z-index: 10;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 0 12px 24px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .brand-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan-primary), var(--blue-accent));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px var(--cyan-glow);
+      color: #fff;
+      font-size: 20px;
+    }
+
+    .brand-text {
+      font-family: 'Outfit', sans-serif;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      background: linear-gradient(90deg, #ffffff, var(--cyan-primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .brand-tag {
+      font-size: 10px;
+      color: var(--text-muted);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .nav-list {
+      list-style: none;
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 12px 16px;
+      border-radius: 12px;
+      color: var(--text-muted);
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .nav-item i {
+      font-size: 18px;
+      transition: color 0.3s;
+    }
+
+    .nav-item:hover {
+      background: var(--bg-card-hover);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      background: linear-gradient(90deg, rgba(0, 210, 255, 0.15), rgba(58, 123, 213, 0.05));
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      color: var(--cyan-primary);
+      box-shadow: 0 4px 15px rgba(0, 210, 255, 0.1);
+    }
+
+    .nav-item.active i {
+      color: var(--cyan-primary);
+      text-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 16px 12px 0;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 8px var(--success);
+    }
+
+    /* ── MAIN CONTENT AREA ── */
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Top Bar */
+    header {
+      height: 70px;
+      padding: 0 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .header-title h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .header-title p {
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .btn-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.3s;
+    }
+
+    .btn-icon:hover {
+      background: var(--bg-card-hover);
+      color: var(--cyan-primary);
+      border-color: var(--cyan-primary);
+      box-shadow: 0 0 12px rgba(0, 210, 255, 0.2);
+    }
+
+    /* Content Views */
+    .content-body {
+      flex: 1;
+      padding: 24px 32px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .view-section {
+      display: none;
+      flex-direction: column;
+      gap: 24px;
+      height: 100%;
+    }
+
+    .view-section.active {
+      display: flex;
+    }
+
+    /* ── SOFI ORB VISUALIZER CONTAINER ── */
+    .hero-orb-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 30px;
+      background: radial-gradient(circle at center, rgba(0, 210, 255, 0.05) 0%, transparent 70%);
+      border-radius: 24px;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    /* Holographic Ring Visualizer */
+    .orb-wrapper {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .orb-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      border-top-color: var(--cyan-primary);
+      border-right-color: var(--blue-accent);
+      animation: spinOrb 6s linear infinite;
+      box-shadow: 0 0 25px var(--cyan-glow);
+    }
+
+    .orb-ring-inner {
+      position: absolute;
+      width: 80%;
+      height: 80%;
+      border-radius: 50%;
+      border: 2px dashed rgba(0, 210, 255, 0.4);
+      animation: spinOrbReverse 10s linear infinite;
+    }
+
+    .orb-core {
+      position: absolute;
+      width: 60%;
+      height: 60%;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--cyan-primary) 0%, var(--blue-accent) 60%, rgba(157, 78, 221, 0.4) 100%);
+      box-shadow: 0 0 35px var(--cyan-primary), inset 0 0 15px rgba(255, 255, 255, 0.8);
+      transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 32px;
+    }
+
+    .orb-wrapper:hover .orb-core {
+      transform: scale(1.08);
+      box-shadow: 0 0 50px var(--cyan-primary), inset 0 0 25px rgba(255, 255, 255, 1);
+    }
+
+    /* States */
+    .orb-wrapper.listening .orb-ring {
+      animation: spinOrb 1.5s linear infinite;
+      border-top-color: #00ffcc;
+      border-right-color: #00d2ff;
+      box-shadow: 0 0 40px #00ffcc;
+    }
+
+    .orb-wrapper.listening .orb-core {
+      animation: pulseCore 1s ease-in-out infinite alternate;
+      background: radial-gradient(circle, #00ffcc 0%, #00d2ff 70%);
+    }
+
+    .orb-wrapper.speaking .orb-ring {
+      animation: spinOrb 3s linear infinite;
+      border-top-color: var(--purple-accent);
+      border-right-color: var(--cyan-primary);
+      box-shadow: 0 0 40px var(--purple-accent);
+    }
+
+    @keyframes spinOrb {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes spinOrbReverse {
+      0% { transform: rotate(360deg); }
+      100% { transform: rotate(0deg); }
+    }
+
+    @keyframes pulseCore {
+      0% { transform: scale(0.95); opacity: 0.85; }
+      100% { transform: scale(1.15); opacity: 1; }
+    }
+
+    /* Audio Waves Canvas */
+    #waveCanvas {
+      width: 100%;
+      height: 60px;
+      margin-top: 20px;
+    }
+
+    /* Status Label */
+    .orb-status-text {
+      margin-top: 16px;
+      font-family: 'Outfit', sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--cyan-primary);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+
+    .orb-sub-text {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    /* ── QUICK VOICE SUGGESTIONS ── */
+    .voice-chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+
+    .chip {
+      padding: 8px 16px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chip:hover {
+      background: var(--bg-card-hover);
+      color: var(--cyan-primary);
+      border-color: var(--cyan-primary);
+      transform: translateY(-2px);
+    }
+
+    /* ── CONVERSATION TRANSCRIPT PANEL ── */
+    .transcript-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .transcript-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 12px;
+    }
+
+    .transcript-header h3 {
+      font-size: 15px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .message-item {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      animation: fadeIn 0.3s ease;
+    }
+
+    .avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+
+    .avatar-user {
+      background: rgba(255, 255, 255, 0.1);
+      color: var(--text-main);
+    }
+
+    .avatar-sofi {
+      background: linear-gradient(135deg, var(--cyan-primary), var(--blue-accent));
+      color: #fff;
+    }
+
+    .msg-content {
+      background: rgba(0, 0, 0, 0.25);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      max-width: 85%;
+    }
+
+    .msg-user .msg-content {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .msg-sofi .msg-content {
+      border: 1px solid rgba(0, 210, 255, 0.2);
+      background: rgba(0, 210, 255, 0.05);
+    }
+
+    /* ── DASHBOARD GRID & SKILL CARDS ── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      backdrop-filter: blur(10px);
+      transition: border-color 0.3s;
+    }
+
+    .card:hover {
+      border-color: var(--border-glow);
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 16px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-title i {
+      color: var(--cyan-primary);
+    }
+
+    /* Weather Card */
+    .weather-temp-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .temp-big {
+      font-family: 'Outfit', sans-serif;
+      font-size: 42px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .weather-icon {
+      font-size: 38px;
+      color: #f59e0b;
+    }
+
+    .weather-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* Smart Home Card Controls */
+    .device-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .device-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .device-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: rgba(0, 210, 255, 0.1);
+      color: var(--cyan-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    /* Toggle Switch */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: rgba(255, 255, 255, 0.15);
+      transition: .3s;
+      border-radius: 24px;
+    }
+
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+
+    input:checked + .slider {
+      background-color: var(--cyan-primary);
+      box-shadow: 0 0 10px var(--cyan-glow);
+    }
+
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Music Player Component */
+    .player-visualizer {
+      display: flex;
+      align-items: flex-end;
+      gap: 4px;
+      height: 30px;
+      justify-content: center;
+    }
+
+    .bar {
+      width: 4px;
+      height: 10%;
+      background: var(--cyan-primary);
+      border-radius: 2px;
+      transition: height 0.1s;
+    }
+
+    .player-controls {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .btn-play {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan-primary), var(--blue-accent));
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      box-shadow: 0 0 15px var(--cyan-glow);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.2s;
+    }
+
+    .btn-play:hover {
+      transform: scale(1.08);
+    }
+
+    /* Input Bar */
+    .input-bar {
+      margin-top: auto;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 8px 16px;
+      backdrop-filter: blur(15px);
+    }
+
+    .input-bar input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-main);
+      font-size: 14px;
+      font-family: inherit;
+    }
+
+    .input-bar input::placeholder {
+      color: var(--text-dim);
+    }
+
+    .btn-send {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--cyan-primary);
+      border: none;
+      color: var(--bg-dark);
+      font-size: 14px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      transition: all 0.2s;
+    }
+
+    .btn-send:hover {
+      background: #33e0ff;
+      box-shadow: 0 0 12px var(--cyan-glow);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── SIDEBAR NAV ── -->
+  <aside>
+    <div class="brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-microphone-lines"></i>
+      </div>
+      <div>
+        <div class="brand-text">SOFI</div>
+        <div class="brand-tag">Voice Assistant 2.0</div>
+      </div>
+    </div>
+
+    <ul class="nav-list">
+      <li class="nav-item active" data-view="voice-hub">
+        <i class="fa-solid fa-waveform-lines"></i> Voice Hub
+      </li>
+      <li class="nav-item" data-view="smart-home">
+        <i class="fa-solid fa-house-signal"></i> Smart Home
+      </li>
+      <li class="nav-item" data-view="briefing">
+        <i class="fa-solid fa-newspaper"></i> Briefing & News
+      </li>
+      <li class="nav-item" data-view="media">
+        <i class="fa-solid fa-music"></i> Music & Sounds
+      </li>
+      <li class="nav-item" data-view="settings">
+        <i class="fa-solid fa-sliders"></i> Voice Settings
+      </li>
+    </ul>
+
+    <div class="sidebar-footer">
+      <div class="status-badge">
+        <div class="status-dot"></div>
+        <span>Sofi Core Active</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── MAIN CONTAINER ── -->
+  <main>
+    <header>
+      <div class="header-title">
+        <h1 id="pageTitle">Voice Command Hub</h1>
+        <p id="pageSubtitle">Say "Sofi" or click the orb to speak</p>
+      </div>
+
+      <div class="header-actions">
+        <div class="btn-icon" id="toggleMuteBtn" title="Toggle Mic Mute">
+          <i class="fa-solid fa-microphone"></i>
+        </div>
+        <div class="btn-icon" id="refreshVoiceBtn" title="Test Sofi Voice">
+          <i class="fa-solid fa-volume-high"></i>
+        </div>
+      </div>
+    </header>
+
+    <div class="content-body">
+
+      <!-- ── SECTION 1: VOICE HUB ── -->
+      <section class="view-section active" id="view-voice-hub">
+
+        <!-- Glowing Orb Visualizer -->
+        <div class="hero-orb-container">
+          <div class="orb-wrapper" id="orbBtn" title="Click to speak with Sofi">
+            <div class="orb-ring"></div>
+            <div class="orb-ring-inner"></div>
+            <div class="orb-core">
+              <i class="fa-solid fa-atom" id="orbIcon"></i>
+            </div>
+          </div>
+
+          <!-- Waveforms canvas -->
+          <canvas id="waveCanvas"></canvas>
+
+          <div class="orb-status-text" id="orbStatus">TAP ORB TO SPEAK</div>
+          <div class="orb-sub-text" id="orbSubText">Listening for "Sofi..."</div>
+
+          <!-- Voice chips -->
+          <div class="voice-chips">
+            <div class="chip" onclick="askSofi('What\'s the weather today?')">
+              <i class="fa-solid fa-cloud-sun"></i> "What's the weather today?"
+            </div>
+            <div class="chip" onclick="askSofi('Turn on living room light')">
+              <i class="fa-solid fa-lightbulb"></i> "Turn on living room light"
+            </div>
+            <div class="chip" onclick="askSofi('Tell me a fun tech fact')">
+              <i class="fa-solid fa-brain"></i> "Tell me a fun tech fact"
+            </div>
+            <div class="chip" onclick="askSofi('Play ambient relax music')">
+              <i class="fa-solid fa-music"></i> "Play ambient music"
+            </div>
+          </div>
+        </div>
+
+        <!-- Transcript Card -->
+        <div class="transcript-card">
+          <div class="transcript-header">
+            <h3><i class="fa-solid fa-comments"></i> Live Transcript</h3>
+            <span style="font-size: 11px; color: var(--text-muted);" id="transcriptCount">0 messages</span>
+          </div>
+
+          <div id="transcriptList" style="display:flex; flex-direction:column; gap:12px;">
+            <div class="message-item msg-sofi">
+              <div class="avatar avatar-sofi"><i class="fa-solid fa-robot"></i></div>
+              <div class="msg-content">
+                Hello boss! I am <strong>Sofi</strong>, your AI voice assistant. How can I help you today?
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Grid with Weather & Quick Controls -->
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-title">
+              <span><i class="fa-solid fa-cloud-sun-rain"></i> Local Weather</span>
+              <span style="font-size: 12px; color: var(--text-muted);">San Francisco, CA</span>
+            </div>
+            <div class="weather-temp-box">
+              <div class="temp-big">72°F</div>
+              <i class="fa-solid fa-sun weather-icon"></i>
+            </div>
+            <div class="weather-stats">
+              <span><i class="fa-solid fa-droplet"></i> Humidity: 45%</span>
+              <span><i class="fa-solid fa-wind"></i> Wind: 8 mph</span>
+              <span><i class="fa-solid fa-temperature-three-quarters"></i> UV: Moderate</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">
+              <span><i class="fa-solid fa-bolt"></i> Fast Voice Skills</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+              <button class="chip" style="justify-content: center;" onclick="askSofi('Set a timer for 5 minutes')">
+                <i class="fa-solid fa-stopwatch"></i> 5 Min Timer
+              </button>
+              <button class="chip" style="justify-content: center;" onclick="askSofi('What is today\'s date?')">
+                <i class="fa-solid fa-calendar"></i> Today's Date
+              </button>
+              <button class="chip" style="justify-content: center;" onclick="askSofi('Tell me a joke')">
+                <i class="fa-solid fa-face-smile"></i> Tell a Joke
+              </button>
+              <button class="chip" style="justify-content: center;" onclick="askSofi('Check system memory')">
+                <i class="fa-solid fa-microchip"></i> System Memory
+              </button>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ── SECTION 2: SMART HOME ── -->
+      <section class="view-section" id="view-smart-home">
+        <div class="card">
+          <div class="card-title">
+            <span><i class="fa-solid fa-house-laptop"></i> Connected Smart Devices</span>
+            <span style="font-size: 12px; color: var(--success);"><i class="fa-solid fa-circle"></i> 4 Devices Online</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div class="device-row">
+              <div class="device-info">
+                <div class="device-icon"><i class="fa-solid fa-lightbulb"></i></div>
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Living Room Main Light</div>
+                  <div style="font-size: 12px; color: var(--text-muted);" id="lightStatusText">Off • Warm White 80%</div>
+                </div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="lightSwitch" onchange="toggleDevice('Living Room Light', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="device-row">
+              <div class="device-info">
+                <div class="device-icon" style="background: rgba(157, 78, 221, 0.15); color: var(--purple-accent);">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i>
+                </div>
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Cyberpunk Neon RGB Strip</div>
+                  <div style="font-size: 12px; color: var(--text-muted);" id="rgbStatusText">On • Electric Cyan Glow</div>
+                </div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="rgbSwitch" checked onchange="toggleDevice('RGB Neon Strip', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="device-row">
+              <div class="device-info">
+                <div class="device-icon" style="background: rgba(16, 185, 129, 0.15); color: var(--success);">
+                  <i class="fa-solid fa-temperature-arrow-up"></i>
+                </div>
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Smart Thermostat AC</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Cooling • Target: 70°F</div>
+                </div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" checked onchange="toggleDevice('AC Thermostat', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+
+            <div class="device-row">
+              <div class="device-info">
+                <div class="device-icon" style="background: rgba(245, 158, 11, 0.15); color: var(--warning);">
+                  <i class="fa-solid fa-lock"></i>
+                </div>
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Front Door Smart Lock</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">Locked & Secured</div>
+                </div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" checked onchange="toggleDevice('Smart Lock', this.checked)">
+                <span class="slider"></span>
+              </label>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SECTION 3: BRIEFING ── -->
+      <section class="view-section" id="view-briefing">
+        <div class="card">
+          <div class="card-title">
+            <span><i class="fa-solid fa-sun"></i> Sofi Morning Briefing</span>
+            <button class="chip" onclick="readBriefingAloud()"><i class="fa-solid fa-play"></i> Read Aloud</button>
+          </div>
+          <p style="font-size: 14px; line-height: 1.6; color: var(--text-main);" id="briefingText">
+            Good morning boss! Today is Friday, August 7. The weather in San Francisco is clear with 72°F. Your schedule is clear until 2:00 PM. Top news headline: Tech innovations continue as AI speech models hit zero latency performance. Have an awesome productive day!
+          </p>
+        </div>
+      </section>
+
+      <!-- ── SECTION 4: MEDIA ── -->
+      <section class="view-section" id="view-media">
+        <div class="card">
+          <div class="card-title">
+            <span><i class="fa-solid fa-radio"></i> Sofi Soundscapes & Music</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 20px; align-items: center; text-align: center; padding: 20px 0;">
+            <div style="width: 120px; height: 120px; border-radius: 50%; background: linear-gradient(135deg, var(--cyan-primary), var(--purple-accent)); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 30px var(--cyan-glow);">
+              <i class="fa-solid fa-music" style="font-size: 48px; color: #fff;"></i>
+            </div>
+            <div>
+              <div style="font-size: 18px; font-weight: 700;">Cyber Ambient Lo-Fi Chill</div>
+              <div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Sofi Stream Player</div>
+            </div>
+
+            <!-- Equalizer bars -->
+            <div class="player-visualizer" id="eqVisualizer">
+              <div class="bar" style="height: 40%;"></div>
+              <div class="bar" style="height: 80%;"></div>
+              <div class="bar" style="height: 30%;"></div>
+              <div class="bar" style="height: 90%;"></div>
+              <div class="bar" style="height: 60%;"></div>
+              <div class="bar" style="height: 100%;"></div>
+              <div class="bar" style="height: 50%;"></div>
+            </div>
+
+            <div class="player-controls">
+              <button class="btn-play" id="musicPlayBtn" onclick="toggleMusic()">
+                <i class="fa-solid fa-play" id="musicPlayIcon"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── SECTION 5: SETTINGS ── -->
+      <section class="view-section" id="view-settings">
+        <div class="card">
+          <div class="card-title">
+            <span><i class="fa-solid fa-sliders"></i> Sofi Voice Synthesis Settings</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 16px;">
+            <div>
+              <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 8px;">Select Voice Model</label>
+              <select id="voiceSelect" style="width: 100%; padding: 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-family: inherit; outline: none;"></select>
+            </div>
+
+            <div>
+              <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 8px;">Speech Pitch (<span id="pitchVal">1.0</span>)</label>
+              <input type="range" id="pitchRange" min="0.5" max="1.5" step="0.1" value="1.0" style="width: 100%;" oninput="document.getElementById('pitchVal').innerText=this.value">
+            </div>
+
+            <div>
+              <label style="font-size: 13px; color: var(--text-muted); display: block; margin-bottom: 8px;">Speech Rate / Speed (<span id="rateVal">1.0</span>)</label>
+              <input type="range" id="rateRange" min="0.5" max="1.8" step="0.1" value="1.0" style="width: 100%;" oninput="document.getElementById('rateVal').innerText=this.value">
+            </div>
+
+            <button class="chip" style="justify-content: center; margin-top: 10px; background: var(--cyan-primary); color: #000; font-weight: bold;" onclick="testVoiceSettings()">
+              <i class="fa-solid fa-volume-high"></i> Test Sofi Voice
+            </button>
+          </div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ── INPUT COMMAND BAR ── -->
+    <div style="padding: 0 32px 24px;">
+      <form class="input-bar" id="commandForm" onsubmit="handleFormSubmit(event)">
+        <i class="fa-solid fa-keyboard" style="color: var(--text-muted);"></i>
+        <input type="text" id="cmdInput" placeholder="Type a voice command or question for Sofi..." autocomplete="off">
+        <button type="submit" class="btn-send">
+          <i class="fa-solid fa-paper-plane"></i>
+        </button>
+      </form>
+    </div>
+  </main>
+
+  <script>
+    // ── GLOBAL STATE & VOICE SYNTHESIS ──
+    const ASSISTANT_NAME = "Sofi";
+    let isListening = false;
+    let isSpeaking = false;
+    let isMuted = false;
+    let synth = window.speechSynthesis;
+    let voices = [];
+    let selectedVoice = null;
+    let recognition = null;
+    let isPlayingMusic = false;
+
+    // Load Available Speech Synthesis Voices
+    function loadVoices() {
+      if (!synth) return;
+      voices = synth.getVoices();
+      const select = document.getElementById('voiceSelect');
+      select.innerHTML = '';
+
+      let defaultIdx = 0;
+      voices.forEach((v, idx) => {
+        const option = document.createElement('option');
+        option.value = idx;
+        option.textContent = `${v.name} (${v.lang})`;
+        if (v.name.includes('Jenny') || v.name.includes('Samantha') || v.name.includes('Zira') || v.name.includes('Female') || v.name.includes('Google US English')) {
+          defaultIdx = idx;
+        }
+        select.appendChild(option);
+      });
+
+      if (voices.length > 0) {
+        select.selectedIndex = defaultIdx;
+        selectedVoice = voices[defaultIdx];
+      }
+    }
+
+    if (synth) {
+      loadVoices();
+      if (speechSynthesis.onvoiceschanged !== undefined) {
+        speechSynthesis.onvoiceschanged = loadVoices;
+      }
+    }
+
+    // Navigation View Switcher
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
+
+        item.classList.add('active');
+        const viewId = item.getAttribute('data-view');
+        document.getElementById(`view-${viewId}`).classList.add('active');
+
+        const titles = {
+          'voice-hub': ['Voice Command Hub', 'Say "Sofi" or click the orb to speak'],
+          'smart-home': ['Smart Home Controls', 'Manage your connected IoT devices'],
+          'briefing': ['Daily Briefing', 'Stay updated with live news and weather'],
+          'media': ['Music & Soundscapes', 'Relaxing ambient audio player'],
+          'settings': ['Voice Settings', 'Customize speech pitch, speed and voice model']
+        };
+        if (titles[viewId]) {
+          document.getElementById('pageTitle').innerText = titles[viewId][0];
+          document.getElementById('pageSubtitle').innerText = titles[viewId][1];
+        }
+      });
+    });
+
+    // ── SPEECH RECOGNITION ──
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (SpeechRecognition) {
+      recognition = new SpeechRecognition();
+      recognition.continuous = false;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onstart = () => {
+        isListening = true;
+        updateOrbState('listening');
+      };
+
+      recognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+        document.getElementById('orbSubText').innerText = `"${transcript}"`;
+        if (event.results[0].isFinal) {
+          processVoiceInput(transcript);
+        }
+      };
+
+      recognition.onerror = (event) => {
+        console.warn('Speech recognition error:', event.error);
+        stopListening();
+      };
+
+      recognition.onend = () => {
+        isListening = false;
+        if (!isSpeaking) {
+          updateOrbState('idle');
+        }
+      };
+    }
+
+    function toggleListening() {
+      if (!recognition) {
+        speakText("Speech recognition is not supported in this browser. Please type your command below.");
+        return;
+      }
+      if (isListening) {
+        recognition.stop();
+      } else {
+        if (synth.speaking) synth.cancel();
+        try {
+          recognition.start();
+        } catch (e) {
+          recognition.stop();
+        }
+      }
+    }
+
+    function stopListening() {
+      isListening = false;
+      if (recognition) recognition.stop();
+      updateOrbState('idle');
+    }
+
+    // ── ORB STATE ANIMATIONS ──
+    function updateOrbState(state) {
+      const wrapper = document.getElementById('orbBtn');
+      const statusText = document.getElementById('orbStatus');
+      const subText = document.getElementById('orbSubText');
+      const icon = document.getElementById('orbIcon');
+
+      wrapper.classList.remove('listening', 'speaking');
+
+      if (state === 'listening') {
+        wrapper.classList.add('listening');
+        statusText.innerText = "LISTENING...";
+        subText.innerText = "Listening to your voice...";
+        icon.className = "fa-solid fa-microphone";
+      } else if (state === 'speaking') {
+        wrapper.classList.add('speaking');
+        statusText.innerText = "SOFI SPEAKING";
+        icon.className = "fa-solid fa-volume-high";
+      } else {
+        statusText.innerText = "TAP ORB TO SPEAK";
+        subText.innerText = "Say \"Sofi\" or click the orb to speak";
+        icon.className = "fa-solid fa-atom";
+      }
+    }
+
+    document.getElementById('orbBtn').addEventListener('click', toggleListening);
+
+    // ── SPEECH SYNTHESIS (SOFI VOICE) ──
+    function speakText(text) {
+      if (!synth || isMuted) return;
+      if (synth.speaking) synth.cancel();
+
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      const voiceIdx = document.getElementById('voiceSelect').value;
+      if (voices[voiceIdx]) {
+        utterance.voice = voices[voiceIdx];
+      }
+      utterance.pitch = parseFloat(document.getElementById('pitchRange').value) || 1.0;
+      utterance.rate = parseFloat(document.getElementById('rateRange').value) || 1.0;
+
+      utterance.onstart = () => {
+        isSpeaking = true;
+        updateOrbState('speaking');
+        document.getElementById('orbSubText').innerText = text;
+      };
+
+      utterance.onend = () => {
+        isSpeaking = false;
+        updateOrbState('idle');
+      };
+
+      utterance.onerror = () => {
+        isSpeaking = false;
+        updateOrbState('idle');
+      };
+
+      synth.speak(utterance);
+    }
+
+    // ── VOICE COMMAND PROCESSING & INTENTS ──
+    function processVoiceInput(query) {
+      if (!query || query.trim() === '') return;
+      query = query.trim();
+
+      addTranscriptMessage('user', query);
+
+      const qLower = query.toLowerCase();
+      let reply = "";
+
+      if (qLower.includes("hello") || qLower.includes("hi") || qLower.includes("hey")) {
+        reply = "Hello boss! I am Sofi. How can I assist you right now?";
+      } else if (qLower.includes("weather")) {
+        reply = "Currently in San Francisco, it is 72 degrees Fahrenheit and sunny with mild humidity. Great weather for today!";
+      } else if (qLower.includes("time")) {
+        const now = new Date();
+        reply = `The current time is ${now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}.`;
+      } else if (qLower.includes("date")) {
+        const now = new Date();
+        reply = `Today is ${now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}.`;
+      } else if (qLower.includes("joke")) {
+        const jokes = [
+          "Why do programmers prefer dark mode? Because light attracts bugs!",
+          "Why did the smartphone go to school? To get smarter!",
+          "There are 10 types of people in the world: those who understand binary, and those who don't!"
+        ];
+        reply = jokes[Math.floor(Math.random() * jokes.length)];
+      } else if (qLower.includes("light")) {
+        const isTurnOn = qLower.includes("on");
+        document.getElementById('lightSwitch').checked = isTurnOn;
+        toggleDevice('Living Room Light', isTurnOn);
+        reply = isTurnOn ? "Turned on the living room light." : "Turned off the living room light.";
+      } else if (qLower.includes("timer")) {
+        reply = "Timer for 5 minutes has been set! I will notify you when time is up.";
+      } else if (qLower.includes("fact")) {
+        reply = "Did you know? The first computer virus was created in 1983 and was called the Creeper virus!";
+      } else if (qLower.includes("music") || qLower.includes("play")) {
+        toggleMusic(true);
+        reply = "Playing ambient relax music track for you now!";
+      } else {
+        reply = `I heard: "${query}". I am ready to process your command, boss!`;
+      }
+
+      setTimeout(() => {
+        addTranscriptMessage('sofi', reply);
+        speakText(reply);
+      }, 400);
+    }
+
+    function askSofi(query) {
+      processVoiceInput(query);
+    }
+
+    function handleFormSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('cmdInput');
+      const val = input.value;
+      if (val) {
+        processVoiceInput(val);
+        input.value = '';
+      }
+    }
+
+    function addTranscriptMessage(sender, text) {
+      const container = document.getElementById('transcriptList');
+      const item = document.createElement('div');
+      item.className = `message-item msg-${sender}`;
+
+      const avatar = document.createElement('div');
+      avatar.className = `avatar avatar-${sender}`;
+      avatar.innerHTML = sender === 'user' ? '<i class="fa-solid fa-user"></i>' : '<i class="fa-solid fa-robot"></i>';
+
+      const content = document.createElement('div');
+      content.className = 'msg-content';
+      content.innerText = text;
+
+      item.appendChild(avatar);
+      item.appendChild(content);
+      container.appendChild(item);
+
+      const card = container.parentElement;
+      card.scrollTop = card.scrollHeight;
+
+      const count = container.children.length;
+      document.getElementById('transcriptCount').innerText = `${count} messages`;
+    }
+
+    function toggleDevice(deviceName, state) {
+      const text = state ? "ON" : "OFF";
+      if (deviceName === 'Living Room Light') {
+        document.getElementById('lightStatusText').innerText = state ? "On • Warm White 100%" : "Off • Warm White 80%";
+      }
+      speakText(`${deviceName} is now turned ${text}.`);
+    }
+
+    function readBriefingAloud() {
+      const text = document.getElementById('briefingText').innerText;
+      speakText(text);
+    }
+
+    function toggleMusic(forcePlay = false) {
+      isPlayingMusic = forcePlay ? true : !isPlayingMusic;
+      const btn = document.getElementById('musicPlayBtn');
+      const icon = document.getElementById('musicPlayIcon');
+      const visualizer = document.getElementById('eqVisualizer');
+
+      if (isPlayingMusic) {
+        icon.className = "fa-solid fa-pause";
+        window.eqInterval = setInterval(() => {
+          document.querySelectorAll('#eqVisualizer .bar').forEach(b => {
+            b.style.height = `${Math.floor(Math.random() * 85) + 15}%`;
+          });
+        }, 150);
+      } else {
+        icon.className = "fa-solid fa-play";
+        clearInterval(window.eqInterval);
+        document.querySelectorAll('#eqVisualizer .bar').forEach(b => b.style.height = "10%");
+      }
+    }
+
+    function testVoiceSettings() {
+      speakText("Testing Sofi voice synthesis settings. Your parameters are set perfectly!");
+    }
+
+    document.getElementById('refreshVoiceBtn').addEventListener('click', testVoiceSettings);
+    document.getElementById('toggleMuteBtn').addEventListener('click', () => {
+      isMuted = !isMuted;
+      const btn = document.getElementById('toggleMuteBtn');
+      btn.style.color = isMuted ? 'var(--danger)' : 'var(--text-muted)';
+      btn.title = isMuted ? 'Unmute Mic' : 'Mute Mic';
+    });
+
+    // ── AUDIO WAVE CANVAS ANIMATION ──
+    const canvas = document.getElementById('waveCanvas');
+    const ctx = canvas.getContext('2d');
+    function resizeCanvas() {
+      canvas.width = canvas.parentElement.clientWidth - 60;
+      canvas.height = 60;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    let step = 0;
+    function animateWaves() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.beginPath();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = isListening ? '#00ffcc' : (isSpeaking ? '#9d4edd' : '#00d2ff');
+
+      const height = canvas.height;
+      const width = canvas.width;
+
+      for (let x = 0; x < width; x++) {
+        let amp = isListening ? 20 : (isSpeaking ? 25 : 5);
+        let y = Math.sin((x + step) * 0.03) * amp + height / 2;
+        if (x === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      step += 2;
+      requestAnimationFrame(animateWaves);
+    }
+    animateWaves();
+  </script>
+</body>
+</html>
