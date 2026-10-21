@@ -37,7 +37,7 @@ def _load_twilio_config() -> dict:
                     "auto_attend_delay": cfg.get("auto_attend_delay_seconds", 10),
                     "auto_attend_greeting": cfg.get(
                         "auto_attend_greeting",
-                        "Hello! Boss is unavailable right now. I am Sofi, Boss's AI assistant. Please state your name and message, and I will deliver it to Boss."
+                        "Hello! Sakthi is unavailable right now. I am Sofi, Sakthi's AI assistant. Please state your name and message, and I will deliver it to Sakthi."
                     ),
                 }
     except Exception as e:
@@ -45,7 +45,7 @@ def _load_twilio_config() -> dict:
     return {
         "account_sid": "", "auth_token": "", "phone_number": "",
         "auto_attend_calls": True, "auto_attend_delay": 10,
-        "auto_attend_greeting": "Hello! Boss is unavailable right now. I am Sofi, Boss's AI assistant. Please leave a message."
+        "auto_attend_greeting": "Hello! Sakthi is unavailable right now. I am Sofi, Sakthi's AI assistant. Please leave a message."
     }
 
 # ── Auto-Attend State & Timers ────────────────────────────────────────────────
@@ -209,7 +209,7 @@ class InboundCallHandler(BaseHTTPRequestHandler):
 
         cfg = _load_twilio_config()
         delay = cfg.get("auto_attend_delay", 10)
-        greeting = cfg.get("auto_attend_greeting", "Hello! Boss is unavailable. Please leave a message.")
+        greeting = cfg.get("auto_attend_greeting", "Hello! Sakthi is unavailable. Please leave a message.")
 
         if transcription:
             _save_voicemail_memory(from_number, transcription)
@@ -325,7 +325,7 @@ def phone_call(parameters: dict, response=None, player=None, speak=None) -> str:
     elif action in ("incoming_call_ring", "call_ringing"):
         _USER_ANSWERED = False
         delay = cfg.get("auto_attend_delay", 10)
-        greeting = cfg.get("auto_attend_greeting", "Hello! Boss is currently unavailable. I am Sofi.")
+        greeting = cfg.get("auto_attend_greeting", "Hello! Sakthi is currently unavailable. I am Sofi.")
 
         if player and hasattr(player, "write_log"):
             player.write_log(f"PHONE 🔔 Incoming call ringing! Sofi auto-attend scheduled in {delay} seconds.")
@@ -334,7 +334,7 @@ def phone_call(parameters: dict, response=None, player=None, speak=None) -> str:
             global _USER_ANSWERED
             if not _USER_ANSWERED:
                 if player and hasattr(player, "write_log"):
-                    player.write_log(f"PHONE 🤖 10s timeout! Sofi attending call on behalf of Boss.")
+                    player.write_log(f"PHONE 🤖 10s timeout! Sofi attending call on behalf of Sakthi.")
                 _attend_softphone_call()
                 if speak:
                     speak(greeting)

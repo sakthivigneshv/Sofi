@@ -3,6 +3,7 @@ import platform as _platform
 import subprocess as _subprocess
 
 _os.environ["QT_LOGGING_RULES"] = "qt.qpa.window=false"
+_os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-gpu-watchdog --log-level=3 --autoplay-policy=no-user-gesture-required"
 
 # ── Nuclear: force CREATE_NO_WINDOW on EVERY subprocess call on Windows ───────
 # This patches Popen itself, so no per-file flag is needed anywhere.
@@ -28,7 +29,19 @@ import traceback
 from datetime import datetime
 from pathlib import Path
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Setting the shape on a NumPy array.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="sounddevice")
+
+import numpy as np
 import sounddevice as sd
+
+# Resolve NumPy >= 2.5 deprecated array shape setting warning in sounddevice
+if hasattr(sd, "_array"):
+    def _patched_sd_array(buffer, channels, dtype):
+        data = np.frombuffer(buffer, dtype=dtype)
+        return np.reshape(data, (-1, channels))
+    sd._array = _patched_sd_array
 from google import genai
 from google.genai import types
 from ui import JarvisUI
@@ -79,6 +92,68 @@ SEND_SAMPLE_RATE    = 16000
 RECEIVE_SAMPLE_RATE = 24000
 CHUNK_SIZE          = 1024
 
+def normalize_and_boost_pcm16(
+    pcm_bytes: bytes | bytearray,
+    gain_factor: float = 1.85,
+    target_peak: float = 30000.0,
+    max_gain: float = 3.5,
+    return_energy: bool = False,
+) -> bytes | tuple[bytes, float]:
+    """
+    Amplifies and normalizes 16-bit signed PCM audio buffers:
+    - Analyzes peak amplitude of the speech chunk.
+    - Applies dynamic gain (default 1.85x, up to max_gain if the signal is quiet).
+    - Prevents digital clipping with soft limiting within [-32767, 32767].
+    - Delivers loud, punchy, distortion-free voice output.
+    - Optionally computes and returns real-time speech energy in a single vectorized pass.
+    """
+    if not pcm_bytes:
+        return (bytes(pcm_bytes), 0.0) if return_energy else bytes(pcm_bytes)
+
+    samples = np.frombuffer(pcm_bytes, dtype=np.int16).astype(np.float32)
+    if len(samples) == 0:
+        return (bytes(pcm_bytes), 0.0) if return_energy else bytes(pcm_bytes)
+
+    peak = float(np.max(np.abs(samples)))
+    if peak < 60.0:  # Silence or ambient noise floor
+        return (bytes(pcm_bytes), 0.0) if return_energy else bytes(pcm_bytes)
+
+    adaptive_gain = min(target_peak / peak, max_gain)
+    effective_gain = max(gain_factor, min(adaptive_gain, gain_factor * 1.5))
+
+    if peak * effective_gain > target_peak:
+        effective_gain = target_peak / peak
+
+    boosted = samples * effective_gain
+    np.clip(boosted, -32767.0, 32767.0, out=boosted)
+    out_bytes = boosted.astype(np.int16).tobytes()
+
+    if return_energy:
+        rms = float(np.sqrt(np.mean(np.square(boosted / 32768.0, dtype=np.float32))))
+        energy = min(1.0, rms * 4.2)
+        return out_bytes, energy
+
+    return out_bytes
+
+
+def ensure_system_volume_max():
+    """Ensures system master output volume is unmuted and set to 100% for maximum audio clarity."""
+    if _platform.system() == "Windows":
+        try:
+            from pycaw.pycaw import AudioUtilities
+            speakers = AudioUtilities.GetSpeakers()
+            if hasattr(speakers, "EndpointVolume") and speakers.EndpointVolume:
+                ep = speakers.EndpointVolume
+                if ep.GetMute():
+                    ep.SetMute(0, None)
+                cur_vol = ep.GetMasterVolumeLevelScalar()
+                if cur_vol < 0.98:
+                    ep.SetMasterVolumeLevelScalar(1.0, None)
+                    print(f"[SOFI] 🔊 System volume set to 100% (was {int(cur_vol*100)}%)")
+        except Exception as e:
+            print(f"[SOFI] ℹ️ Volume sync note: {e}")
+
+
 def _get_api_key() -> str:
     with open(API_CONFIG_PATH, "r", encoding="utf-8") as f:
         return json.load(f)["gemini_api_key"]
@@ -97,7 +172,7 @@ def _load_system_prompt() -> str:
         return PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         return (
-            "You are JARVIS, Tony Stark's AI assistant. "
+            "You are Sofi, Sakthi's AI assistant. "
             "Be concise, direct, and always use the provided tools to complete tasks. "
             "Never simulate or guess results — always call the appropriate tool."
         )
@@ -427,7 +502,7 @@ TOOL_DECLARATIONS = [
         "name": "manage_monitor",
         "description": (
             "Add, remove, or list background monitoring topics. "
-            "JARVIS checks these topics once a day and alerts the user when there is a new development. "
+            "Sofi checks these topics once a day and alerts the user when there is a new development. "
             "Use 'add' when the user says 'monitor X', 'track X', 'follow X'. "
             "Use 'remove' when the user says 'stop monitoring X'. "
             "Use 'list' when the user asks what is being monitored. "
@@ -449,11 +524,11 @@ TOOL_DECLARATIONS = [
         },
     },
     {
-        "name": "shutdown_jarvis",
+        "name": "shutdown_sofi",
         "description": (
             "Shuts down the assistant completely. "
             "Call this when the user expresses intent to end the conversation, "
-            "close the assistant, say goodbye, or stop Jarvis. "
+            "close the assistant, say goodbye, or stop Sofi. "
             "The user can say this in ANY language."
         ),
         "parameters": {
@@ -552,7 +627,7 @@ TOOL_DECLARATIONS = [
                     )
                 },
                 "key":   {"type": "STRING", "description": "Short snake_case key (e.g. name, favorite_food, sister_name)"},
-                "value": {"type": "STRING", "description": "Concise value in English (e.g. Fatih, pizza, older sister)"},
+                "value": {"type": "STRING", "description": "Concise value in English (e.g. Sakthi, pizza, older sister)"},
             },
             "required": ["category", "key", "value"]
         }
@@ -596,7 +671,7 @@ class JarvisLive:
 
     def __init__(self, ui: JarvisUI):
         self.ui             = ui
-        self._asst_name     = "JARVIS"   # updated each session from config
+        self._asst_name     = "Sofi"   # updated each session from config
         self.session              = None
         self.audio_in_queue       = None
         self.out_queue            = None
@@ -612,7 +687,7 @@ class JarvisLive:
         self._interrupted          = False   # True while draining audio after user interrupt
         self.ui.on_text_command   = self._on_text_command
         self.ui.on_remote_clicked = self._make_remote_key
-            self.ui.on_interrupt      = self.interrupt
+        self.ui.on_interrupt      = self.interrupt
         self._turn_done_event: asyncio.Event | None = None
         self._dashboard     = None
         self._briefing_sent    = False          # morning briefing fires once per process
@@ -624,7 +699,7 @@ class JarvisLive:
             from actions.phone_call import start_inbound_server
             start_inbound_server()
         except Exception as e:
-            print(f"[JARVIS] Could not start inbound call server: {e}")
+            print(f"[SOFI] Could not start inbound call server: {e}")
 
     def _make_remote_key(self):
         """Called from Qt main thread when user presses Remote Control."""
@@ -656,10 +731,13 @@ class JarvisLive:
         if value:
             self.ui.set_state("SPEAKING")
         elif not self.ui.muted:
+            self.ui.set_speech_energy(0.0)
             self.ui.set_state("LISTENING")
+        else:
+            self.ui.set_speech_energy(0.0)
 
     def interrupt(self) -> None:
-        """Stop JARVIS mid-speech: drain queued audio and open mic immediately."""
+        """Stop Sofi mid-speech: drain queued audio and open mic immediately."""
         self._interrupted = True
         q = self.audio_in_queue
         if q:
@@ -671,7 +749,7 @@ class JarvisLive:
                 except Exception:
                     break
             if drained:
-                print(f"[JARVIS] ✋ Interrupted — {drained} audio chunks discarded")
+                print(f"[SOFI] ✋ Interrupted — {drained} audio chunks discarded")
         self.set_speaking(False)
         if self._turn_done_event:
             self._turn_done_event.clear()
@@ -700,13 +778,13 @@ class JarvisLive:
         # Load customization from config
         try:
             _cfg = json.loads(open(API_CONFIG_PATH, encoding="utf-8").read())
-            self._asst_name = (_cfg.get("assistant_name") or "JARVIS").strip()
-            self._user_name = (_cfg.get("user_name") or "boss").strip()
-            self._voice_name = (_cfg.get("voice_name") or _cfg.get("tts_voice") or "Aoede").strip()
+            self._asst_name = (_cfg.get("assistant_name") or "Sofi").strip()
+            self._user_name = (_cfg.get("user_name") or "Sakthi").strip()
+            self._voice_name = (_cfg.get("voice_name") or "Kore").strip()
         except Exception:
-            self._asst_name = "JARVIS"
-            self._user_name = "boss"
-            self._voice_name = "Aoede"
+            self._asst_name = "Sofi"
+            self._user_name = "Sakthi"
+            self._voice_name = "Kore"
 
         memory     = load_memory()
         mem_str    = format_memory_for_prompt(memory)
@@ -723,10 +801,9 @@ class JarvisLive:
         # Identity injection — overrides any hardcoded name in prompt.txt
         _addr = f"ADDRESS: Always call the user '{self._user_name}'."
         identity_ctx = (
-            f"[IDENTITY]\n"
-            f"Your name is {self._asst_name}. "
-            f"Always refer to yourself as {self._asst_name}.\n"
-            f"VOICE & PERSONA: Speak in a soft, sweet, warm, clear female voice tone.\n"
+            f"[IDENTITY & VOCAL DELIVERY]\n"
+            f"Your name is {self._asst_name}. Always refer to yourself as {self._asst_name}.\n"
+            f"VOICE DELIVERY: Speak with crystal-clear pronunciation, articulate speech, natural studio clarity, and warm confident presence. Avoid muttering, breathiness, or whispering. Project your voice crisply, distinctly, and energetically.\n"
             f"{_addr}\n\n"
         )
 
@@ -755,7 +832,7 @@ class JarvisLive:
         name = fc.name
         args = dict(fc.args or {})
 
-        print(f"[JARVIS] 🔧 {name}  {args}")
+        print(f"[SOFI] 🔧 {name}  {args}")
         self.ui.set_state("THINKING")
 
         if name == "save_memory":
@@ -909,7 +986,7 @@ class JarvisLive:
                 )
                 result = r or "Phone action completed."
 
-            elif name == "shutdown_jarvis":
+            elif name in ("shutdown_sofi", "shutdown_jarvis"):
                 self.ui.write_log("SYS: Shutdown requested.")
                 async def _do_shutdown():
                     await self._save_session_summary()
@@ -937,7 +1014,7 @@ class JarvisLive:
         if not self.ui.muted:
             self.ui.set_state("LISTENING")
 
-        print(f"[JARVIS] 📤 {name} → {str(result)[:80]}")
+        print(f"[SOFI] 📤 {name} → {str(result)[:80]}")
         return types.FunctionResponse(
             id=fc.id, name=name,
             response={"result": result}
@@ -949,18 +1026,22 @@ class JarvisLive:
             await self.session.send_realtime_input(media=msg)
 
     async def _listen_audio(self):
-        print("[JARVIS] 🎤 Mic started")
+        print("[SOFI] 🎤 Mic started")
         loop = asyncio.get_event_loop()
 
         def callback(indata, frames, time_info, status):
+            if status and status.input_overflow:
+                pass  # avoid exception churn on audio buffer overflow
             with self._speaking_lock:
-                jarvis_speaking = self._is_speaking
-            if not jarvis_speaking and not self.ui.muted and not self._phone_active:
+                sofi_speaking = self._is_speaking
+            if not sofi_speaking and not self.ui.muted and not self._phone_active:
                 data = indata.tobytes()
-                loop.call_soon_threadsafe(
-                    self.out_queue.put_nowait,
-                    {"data": data, "mime_type": "audio/pcm"}
-                )
+                def _enqueue_mic():
+                    try:
+                        self.out_queue.put_nowait({"data": data, "mime_type": "audio/pcm"})
+                    except (asyncio.QueueFull, AttributeError):
+                        pass
+                loop.call_soon_threadsafe(_enqueue_mic)
 
         try:
             with sd.InputStream(
@@ -970,15 +1051,15 @@ class JarvisLive:
                 blocksize=CHUNK_SIZE,
                 callback=callback,
             ):
-                print("[JARVIS] 🎤 Mic stream open")
+                print("[SOFI] 🎤 Mic stream open")
                 while True:
-                    await asyncio.sleep(0.1)
+                    await asyncio.sleep(1.0)
         except Exception as e:
-            print(f"[JARVIS] ❌ Mic: {e}")
+            print(f"[SOFI] ❌ Mic: {e}")
             raise
 
     async def _receive_audio(self):
-        print("[JARVIS] 👂 Recv started")
+        print("[SOFI] 👂 Recv started")
         out_buf, in_buf = [], []
 
         try:
@@ -1042,7 +1123,7 @@ class JarvisLive:
                                 self._session_log.append(f"{self._asst_name}: {full_out}")
                                 if self._dashboard:
                                     asyncio.create_task(self._dashboard.broadcast({
-                                        "type": "log", "speaker": "jarvis",
+                                        "type": "log", "speaker": "sofi",
                                         "text": full_out,
                                         "ts": datetime.now().isoformat(),
                                     }))
@@ -1064,7 +1145,7 @@ class JarvisLive:
                                 )
                                 # Mark next turn_complete behaviour depending on angle
                                 if self._vision_cam_active:
-                                    # Camera: keep busy until JARVIS finishes speaking the answer
+                                    # Camera: keep busy until Sofi finishes speaking the answer
                                     self._vision_cam_active    = False
                                     self._vision_close_pending = True
                                 else:
@@ -1082,35 +1163,51 @@ class JarvisLive:
                     if response.tool_call:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
-                            print(f"[JARVIS] 📞 {fc.name}")
+                            print(f"[SOFI] 📞 {fc.name}")
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
                             function_responses=fn_responses
                         )
         except Exception as e:
-            print(f"[JARVIS] ❌ Recv: {e}")
+            print(f"[SOFI] ❌ Recv: {e}")
             traceback.print_exc()
             raise
 
     async def _play_audio(self):
-        print("[JARVIS] 🔊 Play started")
+        print("[SOFI] 🔊 Play started")
 
+        # Sync system master output volume to unmuted and 100% maximum level
+        ensure_system_volume_max()
+
+        # Open unconstrained hardware stream (PortAudio uses optimal native buffer)
         stream = sd.RawOutputStream(
             samplerate=RECEIVE_SAMPLE_RATE,
             channels=CHANNELS,
             dtype="int16",
-            blocksize=CHUNK_SIZE,
         )
         stream.start()
 
+        # Jitter reservoir: 150ms buffer (7200 bytes) ensures network latency
+        # fluctuations never cause soundcard buffer underruns (robotic stutter/crackling).
+        PREBUFFER_BYTES = 7200
+        is_burst_start = True
+
         try:
             while True:
+                with self._speaking_lock:
+                    is_speaking = self._is_speaking
+
                 try:
-                    chunk = await asyncio.wait_for(
-                        self.audio_in_queue.get(),
-                        timeout=0.1
-                    )
+                    # When speaking, short timeout (0.15s) to detect end of speech burst/turn.
+                    # When idle, wait on queue directly to stop wasting CPU and avoid raising TimeoutError 10x/sec.
+                    if is_speaking:
+                        chunk = await asyncio.wait_for(
+                            self.audio_in_queue.get(),
+                            timeout=0.15
+                        )
+                    else:
+                        chunk = await self.audio_in_queue.get()
                 except asyncio.TimeoutError:
                     if (
                         self._turn_done_event
@@ -1119,29 +1216,69 @@ class JarvisLive:
                     ):
                         self.set_speaking(False)
                         self._turn_done_event.clear()
+                        is_burst_start = True
+                        self.ui.set_speech_energy(0.0)
+                    continue
+
+                if self._interrupted:
+                    is_burst_start = True
                     continue
 
                 self.set_speaking(True)
 
-                # Batch all immediately-available chunks into one write to reduce
-                # thread-pool round-trips (was one asyncio.to_thread per 50ms slice).
-                # Cap at ~200 ms so interrupt() still stops audio within ~200 ms.
                 batch = bytearray(chunk)
-                while len(batch) < 9600:   # 9600 bytes ≈ 200 ms at 24 kHz / 16-bit mono
+
+                # If this is the start of a speech burst, accumulate up to PREBUFFER_BYTES
+                # to cushion against network packet arrival jitter.
+                if is_burst_start and len(batch) < PREBUFFER_BYTES:
+                    t_start = time.monotonic()
+                    while len(batch) < PREBUFFER_BYTES and (time.monotonic() - t_start < 0.20):
+                        try:
+                            batch.extend(self.audio_in_queue.get_nowait())
+                        except asyncio.QueueEmpty:
+                            if self._turn_done_event and self._turn_done_event.is_set():
+                                break
+                            await asyncio.sleep(0.01)
+                    is_burst_start = False
+
+                # Batch remaining immediately-available slices into smooth chunks (~100-200ms)
+                while len(batch) < 9600:
                     try:
                         batch.extend(self.audio_in_queue.get_nowait())
                     except asyncio.QueueEmpty:
                         break
 
+                if self._interrupted:
+                    is_burst_start = True
+                    continue
+
                 try:
-                    await asyncio.to_thread(stream.write, bytes(batch))
+                    # Single-pass dynamic gain amplification, peak normalization and RMS energy calculation
+                    boosted_bytes, energy = normalize_and_boost_pcm16(
+                        batch, gain_factor=1.85, target_peak=30000.0, return_energy=True
+                    )
+
+                    # Stream in ~48ms slices (2304 bytes at 24000Hz 16-bit mono) for high-frequency lip-sync
+                    chunk_size = 2304
+                    for i in range(0, len(boosted_bytes), chunk_size):
+                        if self._interrupted:
+                            is_burst_start = True
+                            break
+                        sub_slice = boosted_bytes[i : i + chunk_size]
+                        sub_samples = np.frombuffer(sub_slice, dtype=np.int16)
+                        if len(sub_samples) > 0:
+                            rms = float(np.sqrt(np.mean(np.square(sub_samples.astype(np.float32) / 32768.0))))
+                            sub_energy = min(1.0, rms * 4.2)
+                            self.ui.set_speech_energy(sub_energy)
+                        await asyncio.to_thread(stream.write, sub_slice)
                 except (RuntimeError, asyncio.CancelledError):
                     break   # executor shutting down — exit cleanly
         except Exception as e:
-            print(f"[JARVIS] ❌ Play: {e}")
+            print(f"[SOFI] ❌ Play: {e}")
             raise
         finally:
             self.set_speaking(False)
+            self.ui.set_speech_energy(0.0)
             stream.stop()
             stream.close()
 
@@ -1241,8 +1378,8 @@ class JarvisLive:
                     return
 
                 if news_text and len(news_text) > 60:
-                    # Show on UI content panel immediately
-                    self.ui.show_content("NEWS — top world news today", news_text)
+                    clean_news = re.sub(r'https?://\S+', '', news_text).strip()
+                    self.ui.show_content("World News Headlines", clean_news)
 
                     p2 = (
                         f"[BRIEFING] Here are today's top news headlines:\n{news_text}\n\n"
@@ -1329,7 +1466,7 @@ class JarvisLive:
         await asyncio.sleep(300)          # wait 5 min after startup before first check
         while True:
             if self.session:
-                # Don't interrupt if user spoke recently or JARVIS is mid-sentence
+                # Don't interrupt if user spoke recently or Sofi is mid-sentence
                 with self._speaking_lock:
                     speaking = self._is_speaking
                 recent_speech = (time.monotonic() - self._last_user_speech) < 30
@@ -1469,7 +1606,7 @@ class JarvisLive:
 
         while True:
             try:
-                print("[JARVIS] Connecting...")
+                print("[SOFI] Connecting...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
@@ -1496,9 +1633,9 @@ class JarvisLive:
                     self._vision_last_time     = 0.0
                     self._interrupted          = False
 
-                    print("[JARVIS] Connected.")
+                    print("[SOFI] Connected.")
                     self.ui.set_state("LISTENING")
-                    self.ui.write_log("SYS: JARVIS online.")
+                    self.ui.write_log("SYS: Sofi online.")
 
                     if self._dashboard:
                         await self._dashboard.broadcast({"type": "status", "state": "active"})
@@ -1529,7 +1666,7 @@ class JarvisLive:
                 # exception escape the while-loop and causing asyncio.run() to
                 # start shutdown — resulting in "executor after shutdown" errors).
                 err_str = str(e)
-                print(f"[JARVIS] Error ({type(e).__name__}): {e}")
+                print(f"[SOFI] Error ({type(e).__name__}): {e}")
                 traceback.print_exc()
 
                 # Invalid API key — stop hammering the API, prompt re-configuration
@@ -1539,7 +1676,7 @@ class JarvisLive:
                     self.ui.prompt_reconfig()
                     while not self.ui._win._ready:
                         await asyncio.sleep(1)
-                    print("[JARVIS] New API key saved — reconnecting...")
+                    print("[SOFI] New API key saved — reconnecting...")
                     _conn_backoff = 3
                     continue
 
@@ -1570,17 +1707,20 @@ class JarvisLive:
                 await self._dashboard.broadcast({"type": "status", "state": "sleeping"})
 
             delay = getattr(self, "_conn_backoff", 3)
-            print(f"[JARVIS] Reconnecting in {delay}s...")
+            print(f"[SOFI] Reconnecting in {delay}s...")
             await asyncio.sleep(delay)
 
 def main():
-    ui = JarvisUI("face.png")
+    face_file = Path(__file__).resolve().parent / "core" / "face.png"
+    if not face_file.exists():
+        face_file = Path(__file__).resolve().parent / "face.png"
+    ui = JarvisUI(str(face_file) if face_file.exists() else "face.png")
 
     def runner():
         ui.wait_for_api_key()
-        jarvis = JarvisLive(ui)
+        sofi = JarvisLive(ui)
         try:
-            asyncio.run(jarvis.run())
+            asyncio.run(sofi.run())
         except KeyboardInterrupt:
             print("\n🔴 Shutting down...")
 

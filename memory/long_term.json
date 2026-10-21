@@ -1,8 +1,12 @@
 {
   "identity": {
+    "user_name": {
+      "value": "Anum Kumar Arya",
+      "updated": "2026-10-16"
+    },
     "language": {
       "value": "Tamil",
-      "updated": "2026-08-09"
+      "updated": "2026-10-21"
     },
     "device": {
       "value": "Realme P1 Pro",
@@ -16,7 +20,12 @@
       "updated": "2026-08-09"
     }
   },
-  "relationships": {},
+  "relationships": {
+    "friends": {
+      "value": "Sabari, Shyam, Sujith, Vignesh",
+      "updated": "2026-10-15"
+    }
+  },
   "wishes": {},
   "notes": {}
 }

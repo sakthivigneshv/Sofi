@@ -1,5 +1,5 @@
 """
-Speech-to-Text engines for MARK XL.
+Speech-to-Text engines for Sofi AI.
 
 Whisper  – offline transcription via faster-whisper (VAD-buffered)
 Vosk     – offline streaming transcription (lighter)

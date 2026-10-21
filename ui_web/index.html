@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sofi AI - Personal Companion</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Sleek Titlebar -->
+    <header class="titlebar">
+        <div class="brand-section">
+            <div class="brand-icon">S</div>
+            <span class="brand-title">SOFI AI</span>
+            <span class="user-badge">BOSS SAKTHI</span>
+        </div>
+        
+        <div class="telemetry-pills">
+            <div class="pill">
+                <div class="pill-dot"></div>
+                <span id="clockPill">--:--:--</span>
+            </div>
+            <div class="pill" id="cpuPill">CPU 4%</div>
+            <div class="pill" id="ramPill">RAM 38%</div>
+        </div>
+        
+        <div class="window-controls">
+            <button class="win-btn" id="minBtn" title="Minimize">−</button>
+            <button class="win-btn" id="maxBtn" title="Maximize">□</button>
+            <button class="win-btn close" id="closeBtn" title="Close">✕</button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="app-container">
+        <!-- Left Hero: The Animated Living Character -->
+        <section class="avatar-stage">
+            <!-- Cybernetic Corner Brackets -->
+            <div class="hud-corner top-left"></div>
+            <div class="hud-corner top-right"></div>
+            <div class="hud-corner bottom-left"></div>
+            <div class="hud-corner bottom-right"></div>
+
+            <!-- Top Left Telemetry -->
+            <div class="cyber-hud-top-left">
+                <div class="hud-tag">SOFI // CYBER-HUMANOID v4.2</div>
+                <div class="hud-sub">NEURAL LINK: <span id="synapseStatus" class="glow-text">99.8% ONLINE</span></div>
+                <div class="hud-sub">OPTICAL CORE: <span style="color:var(--cyan)">ACTIVE TRACKING</span></div>
+            </div>
+
+            <!-- Top Right Telemetry -->
+            <div class="cyber-hud-top-right">
+                <div class="hud-tag" id="hudModeTag">MODE: AUTONOMOUS AI</div>
+                <div class="hud-sub">SECURITY LINK: <span style="color:var(--emerald)">ENCRYPTED</span></div>
+                <div class="hud-sub">TARGET: <span style="color:var(--cyan)">BOSS SAKTHI</span></div>
+            </div>
+
+            <!-- Floating Status Pill on Avatar Stage -->
+            <div class="avatar-status-pill" id="avatarStatusPill">
+                <div class="indicator-ring" id="statusRing"></div>
+                <span id="statusText">SOFI SYSTEM ONLINE</span>
+            </div>
+            
+            <canvas id="avatarCanvas"></canvas>
+            
+            <!-- Bottom HUD Diagnostics Bar -->
+            <div class="hud-bottom-bar">
+                <span class="hud-freq-label">SAMPLING: <span id="hudFreqVal" style="color:var(--cyan)">48.0 kHz</span></span>
+                <span class="hud-center-decor">❖ CYBERNETIC COGNITIVE ENGINE ❖</span>
+                <span class="hud-freq-label" id="hudLatency">RESPONSE: <span style="color:var(--emerald)">&lt; 12ms</span></span>
+            </div>
+
+            <!-- Camera Preview Overlay -->
+            <div class="camera-preview-box" id="cameraPreviewBox">
+                <img id="cameraPreviewImg" src="" alt="Camera Stream">
+            </div>
+        </section>
+
+        <!-- Right Panel: Conversation Stream & Tools -->
+        <section class="chat-panel">
+            <div class="chat-header">
+                <span style="font-weight:600;letter-spacing:0.5px;">LIVE TRANSCRIPT</span>
+                <span style="font-size:11px;color:var(--cyan);font-weight:600;">ACTIVE SESSION</span>
+            </div>
+
+            <!-- Quick Action Chips -->
+            <div class="quick-chips-bar">
+                <button class="quick-chip" data-prompt="Enna panna mudiyum unnala?">💡 Enna Panna Mudiyum?</button>
+                <button class="quick-chip" data-prompt="Check system status and specs">⚡ System Status</button>
+                <button class="quick-chip" data-prompt="Open YouTube and play some music">🎵 Play Music</button>
+                <button class="quick-chip" data-prompt="Tell me a funny joke in Tamil">😄 Tell a Joke</button>
+            </div>
+
+            <!-- Messages Stream -->
+            <div class="messages-stream" id="messagesStream">
+                <!-- Message cards populated dynamically -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Bottom Control Dock -->
+    <footer class="bottom-dock">
+        <div class="dock-left">
+            <button class="master-mic-btn" id="masterMicBtn" title="Toggle Microphone (F4)">
+                🎙️
+            </button>
+        </div>
+
+        <div class="dock-center">
+            <div class="input-container">
+                <input type="text" class="chat-input" id="chatInput" placeholder="Talk to Sofi or type a command, Boss Sakthi..." autocomplete="off">
+                <button class="send-btn" id="sendBtn" title="Send (Enter)">➤</button>
+            </div>
+        </div>
+
+        <div class="dock-right">
+            <button class="tool-btn danger" id="interruptBtn" title="Stop Sofi Speaking (Esc)">
+                🛑 Stop
+            </button>
+            <button class="tool-btn" id="cameraBtn" title="Vision Camera">
+                📷 Vision
+            </button>
+            <button class="tool-btn" id="remoteBtn" title="Mobile Remote Control">
+                📱 Remote
+            </button>
+            <button class="tool-btn" id="clearChatBtn" title="Clear Chat History">
+                🧹 Clear
+            </button>
+            <button class="tool-btn" id="settingsBtn" title="Settings / API Key">
+                ⚙ Settings
+            </button>
+        </div>
+    </footer>
+
+    <!-- Content / Dialog Modal -->
+    <div class="modal-overlay" id="contentModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span id="contentModalTitle">Information</span>
+                <button class="win-btn" onclick="document.getElementById('contentModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body" id="contentModalBody"></div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="document.getElementById('contentModal').classList.remove('active')">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remote Control Modal -->
+    <div class="modal-overlay" id="remoteModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span>📱 Remote Control</span>
+                <button class="win-btn" onclick="document.getElementById('remoteModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>Connect your smartphone or tablet to control Sofi wirelessly:</p>
+                <div style="margin: 12px 0; padding: 10px; background: rgba(0,0,0,0.4); border-radius: 8px; font-family: monospace;">
+                    <div>URL: <span id="remoteUrlText" style="color:var(--cyan);">-</span></div>
+                    <div style="margin-top:6px;">Auth Key: <span id="remoteKeyText" style="color:var(--emerald);">-</span></div>
+                </div>
+                <div style="margin-top: 10px;">
+                    <a id="remoteAutoLink" href="#" target="_blank" style="color:var(--cyan);text-decoration:none;font-weight:600;">🔗 Open Auto-Login Link</a>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('remoteModal').classList.remove('active')">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings / Setup Modal -->
+    <div class="modal-overlay" id="setupModal">
+        <div class="modal-card">
+            <div class="modal-title">
+                <span>⚙ Settings & API Configuration</span>
+                <button class="win-btn" onclick="document.getElementById('setupModal').classList.remove('active')">✕</button>
+            </div>
+            <div class="modal-body">
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-secondary);">Google Gemini API Key:</label>
+                    <input type="password" id="geminiApiKeyInput" class="chat-input" placeholder="Paste your API key here..." style="width:100%;">
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <label style="display:block;margin-bottom:6px;font-size:12px;color:var(--text-secondary);">Operating System:</label>
+                    <select id="osSelect" style="width:100%;height:38px;background:#151b2e;color:#fff;border:1px solid rgba(255,255,255,0.15);border-radius:8px;padding:0 10px;">
+                        <option value="windows" selected>Windows</option>
+                        <option value="darwin">macOS</option>
+                        <option value="linux">Linux</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 12px;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:var(--text-secondary);">
+                        <label for="voiceGainSlider">Voice Output Gain Boost:</label>
+                        <span id="voiceGainVal" style="color:var(--cyan);font-weight:700;">1.85x (+5.5 dB)</span>
+                    </div>
+                    <input type="range" id="voiceGainSlider" min="1.0" max="3.0" step="0.05" value="1.85" style="width:100%;accent-color:var(--cyan);cursor:pointer;">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="document.getElementById('setupModal').classList.remove('active')">Cancel</button>
+                <button class="btn-primary" id="saveSetupBtn">Save Configuration</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="avatar.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

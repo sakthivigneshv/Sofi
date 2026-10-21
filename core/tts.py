@@ -1,5 +1,5 @@
 """
-Text-to-Speech engines for MARK XL.
+Text-to-Speech engines for Sofi AI.
 
 EdgeTTS     – free Microsoft TTS (internet required, no API key)
 Kokoro      – fully offline neural TTS (~330 MB model)
@@ -13,8 +13,19 @@ import queue as _queue
 import threading
 from typing import Callable, Optional
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, message=".*Setting the shape on a NumPy array.*")
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="sounddevice")
+
 import numpy as np
 import sounddevice as sd
+
+# Resolve NumPy >= 2.5 deprecated array shape setting warning in sounddevice
+if hasattr(sd, "_array"):
+    def _patched_sd_array(buffer, channels, dtype):
+        data = np.frombuffer(buffer, dtype=dtype)
+        return np.reshape(data, (-1, channels))
+    sd._array = _patched_sd_array
 
 
 
@@ -77,11 +88,31 @@ def _compress_silence(
     return np.concatenate(out) if out else arr
 
 
+def normalize_and_boost_float32(
+    arr: np.ndarray,
+    gain_factor: float = 1.85,
+    target_peak: float = 0.95,
+) -> np.ndarray:
+    """Peak-normalizes and amplifies float32 audio samples up to 1.85x - 2.0x gain without distortion."""
+    if arr.size == 0:
+        return arr
+    peak = float(np.max(np.abs(arr)))
+    if peak < 0.001:
+        return arr
+    effective_gain = gain_factor
+    if peak * effective_gain > target_peak:
+        effective_gain = target_peak / peak
+    boosted = arr * effective_gain
+    return np.clip(boosted, -1.0, 1.0)
+
+
 def _play_np(samples, sample_rate: int) -> None:
     """Play float32 mono (or stereo) audio via sounddevice.
     Accepts numpy arrays or PyTorch tensors.
     """
-    sd.play(_to_numpy(samples), sample_rate)
+    arr = _to_numpy(samples)
+    arr = normalize_and_boost_float32(arr, gain_factor=1.85)
+    sd.play(arr, sample_rate)
     sd.wait()
 
 
@@ -94,6 +125,7 @@ def _play_audio_bytes(audio_bytes: bytes) -> None:
         nchannels=1,
     )
     samples = np.array(decoded.samples, dtype=np.float32)
+    samples = normalize_and_boost_float32(samples, gain_factor=1.85)
     sd.play(samples, decoded.sample_rate)
     sd.wait()
 

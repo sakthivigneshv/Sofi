@@ -66,3 +66,8 @@ venv.bak/
 # Large binary / archive outputs
 *.apk
 *.zip
+
+# Scratch test files & legacy backups
+scratch/
+ui_backup.py
+ui_old_canvas.py

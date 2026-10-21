@@ -91,11 +91,18 @@ def volume_set(value: int):
     value = max(0, min(100, int(value)))
     if _OS == "Windows":
         try:
+            from pycaw.pycaw import AudioUtilities
+            devices = AudioUtilities.GetSpeakers()
+            if hasattr(devices, "EndpointVolume") and devices.EndpointVolume:
+                devices.EndpointVolume.SetMasterVolumeLevelScalar(value / 100.0, None)
+                if devices.EndpointVolume.GetMute():
+                    devices.EndpointVolume.SetMute(0, None)
+                return
+            # Fallback for older pycaw
             import math
             from ctypes import cast, POINTER
             from comtypes import CLSCTX_ALL
-            from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
-            devices   = AudioUtilities.GetSpeakers()
+            from pycaw.pycaw import IAudioEndpointVolume
             interface = devices.Activate(IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
             vol       = cast(interface, POINTER(IAudioEndpointVolume))
             vol_db    = -65.25 if value == 0 else max(-65.25, 20 * math.log10(value / 100))

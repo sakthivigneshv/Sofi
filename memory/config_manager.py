@@ -68,13 +68,13 @@ def is_configured() -> bool:
 
 
 def get_assistant_name() -> str:
-    """Return the configured assistant name, or 'JARVIS' if not set."""
-    return load_api_keys().get("assistant_name", "JARVIS") or "JARVIS"
+    """Return the configured assistant name, or 'Sofi' if not set."""
+    return load_api_keys().get("assistant_name", "Sofi") or "Sofi"
 
 
 def get_user_name() -> str:
-    """Return the configured user name for addressing, defaulting to 'boss'."""
-    return load_api_keys().get("user_name", "boss") or "boss"
+    """Return the configured user name for addressing, defaulting to 'Sakthi'."""
+    return load_api_keys().get("user_name", "Sakthi") or "Sakthi"
 
 
 def get_voice_name() -> str:
@@ -91,8 +91,8 @@ def save_assistant_config(assistant_name: str, user_name: str, voice_name: str =
             data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
         except Exception:
             data = {}
-    data["assistant_name"] = assistant_name.strip() or "JARVIS"
-    data["user_name"] = user_name.strip() or "boss"
+    data["assistant_name"] = assistant_name.strip() or "Sofi"
+    data["user_name"] = user_name.strip() or "Sakthi"
     data["voice_name"] = voice_name.strip() or "Aoede"
     CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
 

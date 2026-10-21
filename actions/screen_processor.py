@@ -82,14 +82,14 @@ _IMG_MAX_H = 720
 _JPEG_Q    = 82
 
 _SYSTEM_PROMPT = (
-    "You are JARVIS, Tony Stark's AI assistant. "
+    "You are Sofi, Sakthi's AI assistant. "
     "You are given an image from either the user's screen or their webcam. "
     "Analyze what you see with detail and intelligence. "
     "Describe objects, text, people, components, and their context clearly. "
     "For technical questions (circuits, code, hardware) give specific, expert answers. "
     "Be concise — 2-4 sentences — unless the question demands more detail. "
     "Speak directly to the user ('I can see...', 'You have...'). "
-    "Speak in a soft, sweet, warm female voice tone and address the user as 'boss'."
+    "Speak in a soft, sweet, warm female voice tone and address the user as 'Sakthi'."
 )
 
 
@@ -342,10 +342,10 @@ class _VisionSession:
                     if transcript and self._player:
                         full = re.sub(r"\s+", " ", " ".join(transcript)).strip()
                         if full:
-                            self._player.write_log(f"Jarvis: {full}")
+                            self._player.write_log(f"Sofi: {full}")
                             print(f"[Vision] 💬 {full}")
                     transcript = []
-                    # Auto-close camera ~2s after JARVIS finishes speaking
+                    # Auto-close camera ~2s after Sofi finishes speaking
                     if self._player and hasattr(self._player, "stop_camera_stream"):
                         async def _deferred_close():
                             await asyncio.sleep(2.0)
